@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="">
+    <meta name="author" content="">
+ 
+    <title>CSS Compatability Analyzer</title>
+
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+    <link href="css/signin.css" rel="stylesheet">
+
+  <style>
+	#output_table td{
+	padding: 5px;
+	border: 1px solid black;
+	}
+	</style>
+  </head>
+
+  <body>
+
+    <div class="container">
+
+      <form class="form" role="form" action="index.php" method="POST">
+        <h2 class="form-signin-heading">Enter CSS Code here</h2>
+		<a href="javascript:filldata();">Insert Sample Code</a>
+		<textarea class="form-control" rows="10" id="input"></textarea>
+		<br />
+        <a href="javascript:processcode();" class="btn btn-lg btn-primary btn-block" id="button" type="submit" >Process the code</a>
+		<br />
+      </form>
+	  <center>
+	  <div id="output"></div>
+	  <table id="output_table" style="display:none;">
+	  
+	  </table>
+</center>
+    </div> <!-- /container -->
+
+	
+    <!-- Bootstrap core JavaScript
+    ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+	<script src="jquery.min.js"></script>
+	<script>
+	function filldata(){
+		$.get( "bootstrap.css", function( data ) {
+			$( "#input" ).val( data );
+		});
+	};
+	var rules = [];
+	var done;
+	var final_info;
+	function processcode(){
+		final_info = new Array();
+		final_info[0] = new Array();
+		final_info[1] = new Array();
+		final_info[2] = new Array();
+		final_info[3] = new Array();
+		done = 0;
+		rules = [];
+		source = $( "#input" ).val().replace( /\/\*(?:(?!\*\/)[\s\S])*\*\/|[\r\n\t]+/g, '' ).replace( / {2,}/g, ' ' );
+		matches = source.match(/{(.*?)}/g);
+		for (i=0; i<matches.length; i++) {
+			matches[i]=matches[i].substr(1,matches[i].length-2);
+			$.each(matches[i].split(";"), function(index, chunk) {
+					var rule = chunk.split(':')[0].trim();
+					var first_rule = rule.split("{ ");
+					rule = first_rule[first_rule.length-1].trim();
+					if (rule!="") rules.push(rule);
+			});
+		}
+		rules = jQuery.unique( rules );
+		$("#output").html('<p><b>'+rules.length+' properties were found. They are listed below.</b></p>');
+		$("#output_table").html('<thead><tr><td><b>Property</b></td><td><b>Version</b></td><td><b>IE</b></td><td><b>Firefox</b></td><td><b>Chrome</b></td><td><b>Opera</b></td></tr></thead>');
+		$.each(rules,function(index, chunk){
+			$.post( "check.php", { rule: chunk} ).done(function( data ) {
+				if(data=="-NA-") $("#output_table").append('<tr><td>'+chunk+'</td><td colspan="5"><center>Data Not Available</center></td></tr>');
+				else{
+					data = data.split(",");
+					$("#output_table").append('<tr><td>'+chunk+'</td><td>'+data[1]+'</td><td>'+check_version(data[2],0)+'</td><td>'+check_version(data[3],1)+'</td><td>'+check_version(data[4],2)+'</td><td>'+check_version(data[5],3)+'</td></tr>');
+				}
+				done++;
+				if(rules.length==done) {
+					$("#output").append('<p>From the available information, the minimum compatible browsers for your CSS code are: <br /> IE: '+get_info(0)+'<br /> Chrome: '+get_info(1)+'<br /> Firefox: '+get_info(2)+'<br /> Opera: '+get_info(3)+'</p>');
+				}
+			});
+		});
+		$("#output_table").show();
+		
+	}
+	
+	function check_version(str,pos){
+		var num = parseFloat(str);
+		if(num.toString()=="NaN") return "NA";
+		else {
+		num = num.toFixed(2);
+		final_info[pos].push(num);
+		return num;
+		}
+	}
+	
+	function get_info(pos){
+	return '<b>'+Math.max.apply(Math,final_info[pos]).toFixed(2)+'</b>';
+	}
+	</script>
+  </body>
+</html>
